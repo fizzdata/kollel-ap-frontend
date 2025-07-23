@@ -1,2 +1,17 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+:root {
+  --fc-event-bg-color: oklch(51.1% 0.262 276.966);
+  --fc-event-border-color: oklch(51.1% 0.262 276.966);
+  --fc-button-bg-color: oklch(51.1% 0.262 276.966);
+  --fc-button-hover-bg-color: oklch(51.1% 0.262 276.966);
+  --fc-button-hover-border-color: oklch(51.1% 0.262 276.966) / 10;
+  --fc-button-active-bg-color: oklch(58.5% 0.233 277.117);
+
+  --ui-color-primary-500: oklch(51.1% 0.262 276.966);
+}
+
+body {
+  @apply bg-gray-100;
+}
