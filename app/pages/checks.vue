@@ -1,0 +1,1 @@
+<template>checks page</template>
