@@ -104,22 +104,8 @@ const deleteUser = async (id) => {
 
 const columns = [
   { accessorKey: "id", header: "ID" },
-  {
-    accessorKey: "name",
-    header: "Name",
-    id: "name",
-    cell: ({ row }) =>
-      h("div", { class: "flex items-center gap-3" }, [
-        h("div", undefined, [
-          h(
-            "p",
-            { class: "font-medium text-highlighted" },
-            row.original.c_user_name
-          ),
-        ]),
-      ]),
-  },
-
+  { accessorKey: "c_user_name", header: "Name" },
+  { accessorKey: "agreed_amount", header: "Agreed Amount" },
   {
     id: "actions",
     header: "Actions",

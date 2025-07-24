@@ -4,39 +4,24 @@ import FullCalendar from "@fullcalendar/vue3";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { INITIAL_EVENTS, createEventId } from "./../common/common";
 
 const currentEvents = ref([]);
-const weekendsVisible = ref(true);
-
-const handleWeekendsToggle = () => {
-  weekendsVisible.value = !weekendsVisible.value;
-};
-
-const handleDateSelect = (selectInfo) => {
-  const title = prompt("Please enter a new title for your event");
-  const calendarApi = selectInfo.view.calendar;
-
-  calendarApi.unselect();
-
-  if (title) {
-    calendarApi.addEvent({
-      id: createEventId(),
-      title,
-      start: selectInfo.startStr,
-      end: selectInfo.endStr,
-      allDay: selectInfo.allDay,
-    });
-  }
-};
+const api = useApi();
+const loading = ref(false);
+const checks = ref([]);
+const calendarRef = ref(null); // reference to calendar
+const allChecks = ref([]);
+const showEventModal = ref(false);
+const selectedCheck = ref(null);
 
 const handleEventClick = (clickInfo) => {
-  if (
-    confirm(
-      `Are you sure you want to delete the event '${clickInfo.event.title}'`
-    )
-  ) {
-    clickInfo.event.remove();
+  const eventId = parseInt(clickInfo.event.id);
+  selectedCheck.value = allChecks.value.find((check) => check.id === eventId);
+
+  if (selectedCheck.value) {
+    showEventModal.value = true;
+  } else {
+    console.warn("No matching check found for event ID:", eventId);
   }
 };
 
@@ -52,68 +37,148 @@ const calendarOptions = reactive({
     right: "dayGridMonth,timeGridWeek,timeGridDay",
   },
   initialView: "dayGridMonth",
-  initialEvents: INITIAL_EVENTS,
-  editable: true,
-  selectable: true,
+  initialEvents: checks,
+  editable: false,
+  selectable: false,
   selectMirror: true,
   dayMaxEvents: true,
-  weekends: weekendsVisible.value,
-  select: handleDateSelect,
+  weekends: true,
   eventClick: handleEventClick,
   eventsSet: handleEvents,
+});
+
+const totalAmount = computed(() =>
+  allChecks.value
+    .reduce((sum, item) => sum + parseFloat(item.c_check_amount || 0), 0)
+    .toFixed(2)
+);
+
+const fetchList = async () => {
+  try {
+    loading.value = true;
+    const response = await api("/collage_ap/31674439/load");
+    if (response?.success) {
+      const events =
+        response?.transaction?.map((item) => ({
+          id: item.id,
+          title: item.c_user_name,
+          start: item.c_check_date,
+        })) || [];
+
+      checks.value = events;
+      allChecks.value = response?.transaction;
+    }
+  } catch (error) {
+    console.error("Error fetching users:", error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(async () => {
+  await fetchList();
 });
 </script>
 
 <template>
-  <div
-    class="flex flex-col md:flex-row min-h-[calc(100vh-73px)] font-sans text-sm max-w-7xl mx-auto"
-  >
-    <div class="w-full md:w-1/3 bg-indigo-50 border-r border-blue-200">
-      <div class="p-6 space-y-6">
-        <div>
-          <h2 class="text-lg font-semibold">Instructions</h2>
-          <ul class="list-disc list-inside text-gray-600">
-            <li>Select dates and you will be prompted to create a new event</li>
-            <li>Drag, drop, and resize events</li>
-            <li>Click an event to delete it</li>
-          </ul>
-        </div>
+  <div v-if="loading" class="h-full flex items-center justify-center pt-10">
+    <BaseSpinner :show-loader="loading" size="md" />
+  </div>
 
-        <div>
-          <label class="flex items-center gap-2">
-            <input
-              type="checkbox"
-              class="form-checkbox"
-              :checked="weekendsVisible"
-              @change="handleWeekendsToggle"
-            />
-            <span class="text-sm text-gray-700">Toggle weekends</span>
-          </label>
+  <template v-else>
+    <div class="flex flex-col font-sans text-sm max-w-7xl mx-auto p-6 lg:px-8">
+      <div class="flex flex-col">
+        <div class="flex justify-between items-center pb-5">
+          <p class="text-xl font-bold">Checks Calendar View</p>
+          <p class="text-base font-medium">Total Amount: ${{ totalAmount }}</p>
         </div>
-
-        <div>
-          <h2 class="text-lg font-semibold mb-2">
-            All Events ({{ currentEvents.length }})
-          </h2>
-          <ul class="space-y-1 text-gray-700">
-            <li v-for="event in currentEvents" :key="event.id">
-              <b>{{ event.startStr }}</b> <i>{{ event.title }}</i>
-            </li>
-          </ul>
+        <div class="flex-grow overflow-auto">
+          <FullCalendar
+            ref="calendarRef"
+            class="bg-white md:h-[700px] p-2"
+            :options="{ ...calendarOptions, weekends: weekendsVisible }"
+          >
+            <template #eventContent="arg">
+              <b>{{ arg.timeText }}</b>
+              <i>{{ arg.event.title }}</i>
+            </template>
+          </FullCalendar>
         </div>
       </div>
     </div>
-
-    <div class="flex-grow p-6 overflow-auto">
-      <FullCalendar
-        class="max-w-7xl mx-auto bg-white p-2"
-        :options="{ ...calendarOptions, weekends: weekendsVisible }"
-      >
-        <template #eventContent="arg">
-          <b>{{ arg.timeText }}</b>
-          <i>{{ arg.event.title }}</i>
-        </template>
-      </FullCalendar>
-    </div>
-  </div>
+  </template>
+  <UModal v-model:open="showEventModal" :title="'Check Details'">
+    <template #body>
+      <UCard>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <span class="font-medium text-gray-600">Name</span>
+            <p class="text-gray-900">
+              {{ selectedCheck.c_user_name || "N/A" }}
+            </p>
+          </div>
+          <div>
+            <span class="font-medium text-gray-600">Email</span>
+            <p class="text-gray-900">
+              {{ selectedCheck.c_user_email || "N/A" }}
+            </p>
+          </div>
+          <div>
+            <span class="font-medium text-gray-600">Phone</span>
+            <p class="text-gray-900">
+              {{ selectedCheck.c_user_phone || "N/A" }}
+            </p>
+          </div>
+          <div>
+            <span class="font-medium text-gray-600">Address</span>
+            <p class="text-gray-900">
+              {{ selectedCheck.c_user_address || "N/A" }}
+            </p>
+          </div>
+          <div>
+            <span class="font-medium text-gray-600">Agreed Amount</span>
+            <p class="text-gray-900">
+              ${{ selectedCheck.agreed_amount || "N/A" }}
+            </p>
+          </div>
+          <div>
+            <span class="font-medium text-gray-600">Check Amount</span>
+            <p class="text-gray-900">
+              ${{ selectedCheck.c_check_amount || "N/A" }}
+            </p>
+          </div>
+          <div>
+            <span class="font-medium text-gray-600">Check Date</span>
+            <p class="text-gray-900">
+              {{ selectedCheck.c_check_date || "N/A" }}
+            </p>
+          </div>
+          <div>
+            <span class="font-medium text-gray-600">Check Status</span>
+            <p class="text-gray-900">
+              {{ selectedCheck.c_check_status || "N/A" }}
+            </p>
+          </div>
+          <div>
+            <span class="font-medium text-gray-600">Memo</span>
+            <p class="text-gray-900">
+              {{ selectedCheck.c_check_memo || "N/A" }}
+            </p>
+          </div>
+          <div>
+            <span class="font-medium text-gray-600">Payee</span>
+            <p class="text-gray-900">
+              {{ selectedCheck.c_check_payee || "N/A" }}
+            </p>
+          </div>
+          <div>
+            <span class="font-medium text-gray-600">Account Year</span>
+            <p class="text-gray-900">
+              {{ selectedCheck.c_check_account_year }}
+            </p>
+          </div>
+        </div>
+      </UCard>
+    </template>
+  </UModal>
 </template>

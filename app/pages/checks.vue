@@ -90,8 +90,8 @@ const onSubmit = async (event) => {
 const resetForm = () => {
   Object.assign(form.value, {
     user_id: "",
-    payee: undefined,
-    amount: "",
+    payee: "",
+    amount: null,
     memo: "",
     date: "",
     year: new Date().getFullYear().toString(),
@@ -107,7 +107,6 @@ const fetchList = async () => {
     if (response?.success) {
       users.value = response.c_users || [];
       checks.value = response?.transaction || [];
-      console.log("users.value", users.value);
     }
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -190,8 +189,6 @@ onMounted(async () => {
       <UTable
         :data="checks"
         :columns="columns"
-        loading-color="primary"
-        loading-animation="carousel"
         :loading="loading"
         class="flex-1"
       />
