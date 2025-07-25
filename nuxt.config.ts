@@ -31,7 +31,10 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Expose public environment variables to both client and server
     public: {
-      API_URL: process.env.API_URL || 'https://kollelsys.com',
+      API_URL: process.env.API_URL || 'https://kollelsys.fizzdata.com',
     },
   },
+  ui: {
+    colorMode: false
+  }
 })

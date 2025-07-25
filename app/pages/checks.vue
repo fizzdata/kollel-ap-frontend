@@ -1,6 +1,6 @@
 <script setup>
 import { object, string, number } from "yup";
-import { DateFormatter, getLocalTimeZone } from "@internationalized/date";
+import { CalendarDate } from "@internationalized/date";
 
 const api = useApi();
 const toast = useToast();
@@ -9,12 +9,10 @@ const showModal = ref(false);
 const isSubmitting = ref(false);
 const open = ref(false);
 const checks = ref([]);
-const df = new DateFormatter("en-US", {
-  dateStyle: "medium",
-});
-
+const showDeleteConfirmModal = ref(false);
 // Form state
 const form = ref({
+  id: null,
   user_id: "",
   payee: "",
   amount: null,
@@ -44,35 +42,44 @@ const state = reactive({ ...form.value });
 const onSubmit = async (event) => {
   isSubmitting.value = true;
 
+  const endpoint = form.value.id
+    ? `/collage_ap/10869442/check/${form.value.id}`
+    : `/collage_ap/10869442/check`;
+  const method = form.value.id ? "PUT" : "POST";
+
+  delete event.data.id;
+
   try {
-    const response = await api(`/collage_ap/31674439/create/check`, {
-      method: "POST",
+    const response = await api(endpoint, {
+      method: method,
       body: event.data,
-      header: {
-        "x-csrf-token": "MWKf5MzznFD5yIWb907whODwIIwPcYoyf2YGzFIw",
-      },
     });
 
     if (response?.success) {
       toast.add({
         title: "Success",
-        description: "Check created successfully",
-        color: "green",
+        description:
+          response.msg || form.value.id
+            ? "Check updated successfully"
+            : "Check created successfully",
+        color: "success",
+        duration: 2000,
       });
       showModal.value = false;
+      form.value.id = null;
       resetForm();
       await fetchList();
-    } else if (response?._data?.message) {
+    } else if (response?._data?.msg) {
       toast.add({
         title: "Failed",
-        description: response._data.message,
-        color: "red",
+        description: response._data.msg,
+        color: "error",
       });
     } else {
       toast.add({
         title: "Unexpected Response",
         description: "Something went wrong. Please try again.",
-        color: "red",
+        color: "error",
       });
     }
   } catch (error) {
@@ -80,15 +87,17 @@ const onSubmit = async (event) => {
     toast.add({
       title: "Error",
       description: "Failed to create check",
-      color: "red",
+      color: "error",
     });
   } finally {
     isSubmitting.value = false;
+    showModal.value = false;
   }
 };
 
 const resetForm = () => {
   Object.assign(form.value, {
+    id: null,
     user_id: "",
     payee: "",
     amount: null,
@@ -97,40 +106,85 @@ const resetForm = () => {
     year: new Date().getFullYear().toString(),
   });
   Object.assign(state, form.value);
-  showModal.value = true;
-};
-
-const fetchList = async () => {
-  try {
-    loading.value = true;
-    const response = await api("/collage_ap/31674439/load");
-    if (response?.success) {
-      users.value = response.c_users || [];
-      checks.value = response?.transaction || [];
-    }
-  } catch (error) {
-    console.error("Error fetching users:", error);
-  } finally {
-    loading.value = false;
-  }
 };
 
 const editCheck = (check) => {
-  console.log("🚀 ~ editCheck ~ check:", check);
+  form.value.id = check.check_id;
+  state.user_id = check.id;
+  state.payee = check.c_check_payee;
+  state.amount = check.c_check_amount;
+  state.memo = "";
+
+  // Convert the YYYY-MM-DD string to a CalendarDate object
+  if (check.c_check_date) {
+    const [year, month, day] = check.c_check_date.split("-").map(Number);
+    state.date = new CalendarDate(year, month - 1, day); // month is 0-indexed in CalendarDate
+  } else {
+    state.date = "";
+  }
+
+  state.year = check.c_check_account_year;
+
+  showModal.value = true;
 };
 
 const deleteCheck = (check) => {
-  console.log("🚀 ~ deleteCheck ~ check:", check);
+  form.value.id = check.check_id;
+  showDeleteConfirmModal.value = true;
+};
+
+const onDeleteConfirm = async () => {
+  if (!form.value.id) return;
+  isSubmitting.value = true;
+
+  try {
+    const response = await api(`/collage_ap/10869442/check/${form.value.id}`, {
+      method: "DELETE",
+    });
+
+    if (response?.success) {
+      toast.add({
+        title: "Success",
+        description: response?.msg || "Check deleted successfully",
+        color: "success",
+        duration: 2000,
+      });
+      await fetchList();
+      form.value.id = null;
+      showDeleteConfirmModal.value = false;
+    } else {
+      toast.add({
+        description:
+          response?.msg ||
+          response?._data?.msg ||
+          "Failed to delete invoice. Please try again later.",
+        color: "error",
+        duration: 2000,
+      });
+      showDeleteConfirmModal.value = false;
+    }
+  } catch (error) {
+    console.error("Delete failed:", error);
+    toast.add({
+      title: "Error",
+      description: "Something went wrong. Please try again later.",
+      color: "error",
+      duration: 2000,
+    });
+  } finally {
+    isSubmitting.value = false;
+    showDeleteConfirmModal.value = false;
+  }
 };
 
 const columns = [
-  { accessorKey: "id", header: "ID" },
   { accessorKey: "c_user_name", header: "User Name" },
   { accessorKey: "agreed_amount", header: "Agreed Amount" },
   { accessorKey: "c_check_date", header: "Check Date" },
   { accessorKey: "c_check_amount", header: "Check Amount" },
   { accessorKey: "c_check_status", header: "Check Status" },
   { accessorKey: "c_check_account_year", header: "Account Year" },
+  { accessorKey: "check_memo", header: "Check Memo" },
   {
     id: "actions",
     header: "Actions",
@@ -163,7 +217,7 @@ const columns = [
                 size: "xs",
                 color: "error",
                 variant: "soft",
-                onClick: () => deleteCheck(row.original.id),
+                onClick: () => deleteCheck(row.original),
               }),
           }
         ),
@@ -171,8 +225,34 @@ const columns = [
   },
 ];
 
+const fetchList = async () => {
+  try {
+    loading.value = true;
+    const response = await api("/collage_ap/10869442/checks");
+    if (response?.success) {
+      checks.value = response?.data || [];
+    }
+  } catch (error) {
+    console.error("Error fetching users:", error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+const fetchUsers = async () => {
+  try {
+    const response = await api(`/collage_ap/10869442/users`); // Call it as a function
+    if (response?.success) {
+      users.value = response?.c_users;
+    }
+  } catch (error) {
+    console.error("Error fetching projects:", error);
+  }
+};
+
 onMounted(async () => {
   await fetchList();
+  await fetchUsers();
 });
 </script>
 
@@ -182,7 +262,15 @@ onMounted(async () => {
       <template #header>
         <div class="flex justify-between items-center">
           <h2 class="text-xl font-bold">Checks</h2>
-          <UButton @click="resetForm">+ Add Check</UButton>
+          <UButton
+            @click="
+              {
+                resetForm;
+                showModal = true;
+              }
+            "
+            >+ Add Check</UButton
+          >
         </div>
       </template>
 
@@ -198,7 +286,7 @@ onMounted(async () => {
   <!-- Add/Edit check modal -->
   <UModal
     v-model:open="showModal"
-    :title="'Add New Check'"
+    :title="form.id ? 'Update Check' : 'Add New Check'"
     :dismissible="false"
   >
     <template #body>
@@ -243,11 +331,7 @@ onMounted(async () => {
                   icon="i-lucide-calendar"
                   class="w-full"
                 >
-                  {{
-                    state.date
-                      ? df.format(state.date.toDate(getLocalTimeZone()))
-                      : "Select a date"
-                  }}
+                  {{ state.date || "Select a date" }}
                 </UButton>
 
                 <template #content>
@@ -283,10 +367,42 @@ onMounted(async () => {
             type="submit"
             :loading="isSubmitting"
             :disabled="isSubmitting"
-            label="Save Check"
+            :label="form.id ? 'Update' : 'Create'"
           />
         </div>
       </UForm>
+    </template>
+  </UModal>
+
+  <UModal
+    v-model:open="showDeleteConfirmModal"
+    title="Confirm Delete"
+    :dismissible="false"
+  >
+    <template #body>
+      <p class="text-sm text-gray-600 border-b pb-4 border-gray-200">
+        Are you sure you want to delete this check? This action cannot be
+        undone.
+      </p>
+
+      <div class="flex justify-end gap-2 mt-3">
+        <UButton
+          color="neutral"
+          variant="outline"
+          @click="showDeleteConfirmModal = false"
+        >
+          Cancel
+        </UButton>
+        <UButton
+          color="error"
+          variant="solid"
+          @click="onDeleteConfirm"
+          :loading="isSubmitting"
+          :disabled="isSubmitting"
+        >
+          Delete
+        </UButton>
+      </div>
     </template>
   </UModal>
 </template>

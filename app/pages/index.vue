@@ -13,10 +13,14 @@ const calendarRef = ref(null); // reference to calendar
 const allChecks = ref([]);
 const showEventModal = ref(false);
 const selectedCheck = ref(null);
-
+const users = ref([]);
 const handleEventClick = (clickInfo) => {
-  const eventId = parseInt(clickInfo.event.id);
-  selectedCheck.value = allChecks.value.find((check) => check.id === eventId);
+  const eventId = +clickInfo.event.id;
+
+  selectedCheck.value = {
+    ...allChecks.value.find((check) => check.id === eventId),
+    ...users.value.find((item) => item.id === eventId),
+  };
 
   if (selectedCheck.value) {
     showEventModal.value = true;
@@ -56,17 +60,17 @@ const totalAmount = computed(() =>
 const fetchList = async () => {
   try {
     loading.value = true;
-    const response = await api("/collage_ap/31674439/load");
+    const response = await api("/collage_ap/10869442/checks");
     if (response?.success) {
       const events =
-        response?.transaction?.map((item) => ({
+        response?.data?.map((item) => ({
           id: item.id,
           title: item.c_user_name,
           start: item.c_check_date,
         })) || [];
 
       checks.value = events;
-      allChecks.value = response?.transaction;
+      allChecks.value = response?.data;
     }
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -75,7 +79,22 @@ const fetchList = async () => {
   }
 };
 
+const fetchUsers = async () => {
+  loading.value = true;
+  try {
+    const response = await api(`/collage_ap/10869442/users`); // Call it as a function
+    if (response?.success) {
+      users.value = response?.c_users;
+    }
+  } catch (error) {
+    console.error("Error fetching projects:", error);
+  } finally {
+    loading.value = false;
+  }
+};
+
 onMounted(async () => {
+  await fetchUsers();
   await fetchList();
 });
 </script>
@@ -162,7 +181,7 @@ onMounted(async () => {
           <div>
             <span class="font-medium text-gray-600">Memo</span>
             <p class="text-gray-900">
-              {{ selectedCheck.c_check_memo || "N/A" }}
+              {{ selectedCheck.check_memo || "N/A" }}
             </p>
           </div>
           <div>

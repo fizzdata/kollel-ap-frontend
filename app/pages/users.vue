@@ -7,8 +7,9 @@ const showModal = ref(false);
 const api = useApi();
 const loading = ref(false);
 const toast = useToast();
-
+const showDeleteConfirmModal = ref(false);
 const form = ref({
+  id: null,
   name: "",
   email: "",
   phone: "",
@@ -20,7 +21,11 @@ const form = ref({
 const schema = object({
   name: string().required("Name is required"),
   email: string().email("Invalid email").required("Email is required"),
-  phone: string().required("Phone is required"),
+  phone: string()
+    .matches(/^[0-9]+$/, "Phone number must be numeric")
+    .min(10, "Phone number must be at least 10 digits")
+    .max(10, "Phone number must be at most 10 digits")
+    .required("This field is required"),
   address: string().required("Address is required"),
   agreed_amount: string().required("Agreed amount is required"),
 });
@@ -30,37 +35,42 @@ const state = reactive({ ...form.value });
 const onSubmit = async (event) => {
   isSubmitting.value = true;
 
-  const endpoint = `/collage_ap/31674439/create/user`;
-  const method = "POST";
+  const endpoint = state.id
+    ? `/collage_ap/10869442/user/${state.id}`
+    : `/collage_ap/10869442/user`;
+  const method = state.id ? "PUT" : "POST";
 
+  delete event.data.id;
   try {
     const response = await api(endpoint, {
-      method,
+      method: method,
       body: event.data,
-      headers: {
-        "x-csrf-token": "MWKf5MzznFD5yIWb907whODwIIwPcYoyf2YGzFIw",
-        "Content-Type": "application/json",
-      },
     });
 
     if (response?.success) {
+      showModal.value = false;
       toast.add({
         title: "Success",
-        description: response.msg || "User created successfully",
-        color: "green",
+        description:
+          response.msg || state.id
+            ? "User updated successfully"
+            : "User created successfully",
+        color: "success",
+        duration: 2000,
       });
+      state.id = null;
       await fetchUsers();
-    } else if (response?._data?.message) {
+    } else if (response?._data?.msg) {
       toast.add({
         title: "Failed",
-        description: response._data.message,
-        color: "red",
+        description: response._data.msg,
+        color: "error",
       });
     } else {
       toast.add({
         title: "Unexpected Response",
         description: "Something went wrong. Please try again.",
-        color: "red",
+        color: "error",
       });
     }
   } catch (error) {
@@ -68,7 +78,7 @@ const onSubmit = async (event) => {
     toast.add({
       title: "Error",
       description: "An unexpected error occurred.",
-      color: "red",
+      color: "error",
     });
   } finally {
     showModal.value = false;
@@ -88,23 +98,78 @@ const resetForm = () => {
   });
 
   Object.assign(state, form.value);
-  showModal.value = true;
 };
 
 const editUser = (user) => {
+  form.value.id = user.id;
+  state.id = user.id;
   state.name = user.c_user_name;
-  //   showModal.value = true;
+  state.email = user.c_user_email;
+  state.phone = user.c_user_phone;
+  state.agreed_amount = user.agreed_amount;
+  state.address = user.c_user_address;
+  showModal.value = true;
 };
 
-const deleteUser = async (id) => {
-  await $fetch(`/api/users/${id}`, { method: "DELETE" });
-  toast.add({ title: "Deleted", description: "User deleted", color: "red" });
-  await fetchUsers();
+const deleteUser = (user) => {
+  form.value.id = user.id;
+  state.id = user.id;
+  state.name = user.c_user_name;
+  showDeleteConfirmModal.value = true;
+};
+
+const onDeleteConfirm = async () => {
+  if (!state.id) return;
+  isSubmitting.value = true;
+
+  try {
+    const response = await api(`/collage_ap/10869442/user/${state.id}`, {
+      method: "DELETE",
+    });
+
+    if (response?.success) {
+      toast.add({
+        title: "Success",
+        description: response?.msg || "User deleted successfully",
+        color: "success",
+        duration: 2000,
+      });
+      await fetchUsers();
+
+      state.id = "";
+      state.name = "";
+      showDeleteConfirmModal.value = false;
+    } else {
+      toast.add({
+        description:
+          response?.msg ||
+          response?._data?.msg ||
+          "Failed to delete invoice. Please try again later.",
+        color: "error",
+        duration: 2000,
+      });
+
+      showDeleteConfirmModal.value = false;
+    }
+  } catch (error) {
+    console.error("Delete failed:", error);
+    toast.add({
+      title: "Error",
+      description: "Something went wrong. Please try again later.",
+      color: "error",
+      duration: 2000,
+    });
+  } finally {
+    isSubmitting.value = false;
+    showDeleteConfirmModal.value = false;
+  }
 };
 
 const columns = [
-  { accessorKey: "id", header: "ID" },
   { accessorKey: "c_user_name", header: "Name" },
+  { accessorKey: "c_user_email", header: "Email" },
+  { accessorKey: "c_user_phone", header: "Phone No." },
+  { accessorKey: "c_user_address", header: "Address" },
   { accessorKey: "agreed_amount", header: "Agreed Amount" },
   {
     id: "actions",
@@ -138,7 +203,7 @@ const columns = [
                 size: "xs",
                 color: "error",
                 variant: "soft",
-                onClick: () => deleteUser(row.original.id),
+                onClick: () => deleteUser(row.original),
               }),
           }
         ),
@@ -149,9 +214,8 @@ const columns = [
 const fetchUsers = async () => {
   loading.value = true;
   try {
-    const response = await api(`/collage_ap/31674439/load`); // Call it as a function
+    const response = await api(`/collage_ap/10869442/users`); // Call it as a function
     if (response?.success) {
-      console.log("🚀 ~ fetchUsers ~ response:", response);
       users.value = response?.c_users;
     }
   } catch (error) {
@@ -172,7 +236,15 @@ onMounted(async () => {
       <template #header>
         <div class="flex justify-between items-center">
           <h2 class="text-xl font-bold">Users</h2>
-          <UButton @click="resetForm">+ Add User</UButton>
+          <UButton
+            @click="
+              {
+                resetForm;
+                showModal = true;
+              }
+            "
+            >+ Add User</UButton
+          >
         </div>
       </template>
 
@@ -186,7 +258,11 @@ onMounted(async () => {
     </UCard>
   </div>
   <!-- Modal for Add/Edit -->
-  <UModal v-model:open="showModal" :title="'Create User'" :dismissible="false">
+  <UModal
+    v-model:open="showModal"
+    :title="form.id ? 'Update User' : 'Create User'"
+    :dismissible="false"
+  >
     <template #body>
       <UForm
         :schema="schema"
@@ -249,10 +325,43 @@ onMounted(async () => {
             type="submit"
             :loading="isSubmitting"
             :disabled="isSubmitting"
-            label="Create"
+            :label="form.id ? 'Update' : 'Create'"
           />
         </div>
       </UForm>
+    </template>
+  </UModal>
+
+  <UModal
+    v-model:open="showDeleteConfirmModal"
+    title="Confirm Delete"
+    :dismissible="false"
+  >
+    <template #body>
+      <p class="text-sm text-gray-600 border-b pb-4 border-gray-200">
+        Are you sure you want to delete this
+        <strong> {{ state && state.name }}</strong>
+        user? This action cannot be undone.
+      </p>
+
+      <div class="flex justify-end gap-2 mt-3">
+        <UButton
+          color="neutral"
+          variant="outline"
+          @click="showDeleteConfirmModal = false"
+        >
+          Cancel
+        </UButton>
+        <UButton
+          color="error"
+          variant="solid"
+          @click="onDeleteConfirm"
+          :loading="isSubmitting"
+          :disabled="isSubmitting"
+        >
+          Delete
+        </UButton>
+      </div>
     </template>
   </UModal>
 </template>
