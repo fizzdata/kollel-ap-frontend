@@ -20,14 +20,14 @@ const form = ref({
 // Validation schema
 const schema = object({
   name: string().required("Name is required"),
-  email: string().email("Invalid email").required("Email is required"),
+  email: string().email("Invalid email").optional("Email is required"),
   phone: string()
-    .matches(/^[0-9]+$/, "Phone number must be numeric")
-    .min(10, "Phone number must be at least 10 digits")
-    .max(10, "Phone number must be at most 10 digits")
-    .required("This field is required"),
-  address: string().required("Address is required"),
-  agreed_amount: string().required("Agreed amount is required"),
+    // .matches(/^[0-9]+$/, "Phone number must be numeric")
+    // .min(10, "Phone number must be at least 10 digits")
+    // .max(10, "Phone number must be at most 10 digits")
+    .optional("This field is required"),
+  address: string().optional("Address is required"),
+  agreed_amount: string().optional("Agreed amount is required"),
 });
 
 const state = reactive({ ...form.value });
