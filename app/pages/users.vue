@@ -20,14 +20,14 @@ const form = ref({
 // Validation schema
 const schema = object({
   name: string().required("Name is required"),
-  email: string().email("Invalid email").optional("Email is required"),
+  email: string().email("Invalid email").optional(),
   phone: string()
     // .matches(/^[0-9]+$/, "Phone number must be numeric")
     // .min(10, "Phone number must be at least 10 digits")
     // .max(10, "Phone number must be at most 10 digits")
-    .optional("This field is required"),
-  address: string().optional("Address is required"),
-  agreed_amount: string().optional("Agreed amount is required"),
+    .optional(),
+  address: string().optional(),
+  agreed_amount: string().optional(),
 });
 
 const state = reactive({ ...form.value });
@@ -143,8 +143,9 @@ const onDeleteConfirm = async () => {
       toast.add({
         description:
           response?.msg ||
+          response?.message ||
           response?._data?.msg ||
-          "Failed to delete invoice. Please try again later.",
+          "Failed to delete user. Please try again later.",
         color: "error",
         duration: 2000,
       });
@@ -243,8 +244,9 @@ onMounted(async () => {
                 showModal = true;
               }
             "
-            >+ Add User</UButton
           >
+            + Add User
+          </UButton>
         </div>
       </template>
 

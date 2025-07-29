@@ -32,7 +32,7 @@ const schema = object({
     .transform((value) => (isNaN(value) ? undefined : value)) // Transform empty strings to undefined
     .required("Amount is required")
     .positive("Amount must be positive"),
-  memo: string(),
+  memo: string().optional(),
   date: string().required("Date is required"),
   year: string().required("Year is required"),
 });
@@ -113,7 +113,7 @@ const editCheck = (check) => {
   state.user_id = check.id;
   state.payee = check.c_check_payee;
   state.amount = check.c_check_amount;
-  state.memo = "";
+  state.memo = check.check_memo;
 
   // Convert the YYYY-MM-DD string to a CalendarDate object
   if (check.c_check_date) {
@@ -156,8 +156,9 @@ const onDeleteConfirm = async () => {
       toast.add({
         description:
           response?.msg ||
+          response?.message ||
           response?._data?.msg ||
-          "Failed to delete invoice. Please try again later.",
+          "Failed to delete check. Please try again later.",
         color: "error",
         duration: 2000,
       });
@@ -221,9 +222,300 @@ const columns = [
               }),
           }
         ),
+        // Tooltip with Print Icon Button
+        h(
+          resolveComponent("UTooltip"),
+          { text: "Print" },
+          {
+            default: () =>
+              h(resolveComponent("UButton"), {
+                icon: "i-heroicons-printer",
+                size: "xs",
+                color: "info",
+                variant: "soft",
+                onClick: () => printCheck(row.original),
+              }),
+          }
+        ),
       ]),
   },
 ];
+
+// Helper function to convert numbers to words (for the amount in words)
+const numberToWords = (num) => {
+  const ones = [
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
+  ];
+
+  const tens = [
+    "",
+    "",
+    "Twenty",
+    "Thirty",
+    "Forty",
+    "Fifty",
+    "Sixty",
+    "Seventy",
+    "Eighty",
+    "Ninety",
+  ];
+
+  if (num === 0) return "Zero";
+
+  function convertLessThanOneHundred(n) {
+    if (n < 20) return ones[n];
+    const ten = Math.floor(n / 10);
+    const one = n % 10;
+    return tens[ten] + (one ? " " + ones[one] : "");
+  }
+
+  function convertLessThanOneThousand(n) {
+    const hundred = Math.floor(n / 100);
+    const remainder = n % 100;
+    let result = "";
+    if (hundred > 0) {
+      result += ones[hundred] + " Hundred";
+    }
+    if (remainder > 0) {
+      if (result) result += " and ";
+      result += convertLessThanOneHundred(remainder);
+    }
+    return result;
+  }
+
+  const numStr = num.toString().split(".");
+  let wholeNumber = parseInt(numStr[0]);
+  let result = "";
+
+  if (wholeNumber === 0) {
+    result = "Zero";
+  } else {
+    const billion = Math.floor(wholeNumber / 1000000000);
+    wholeNumber %= 1000000000;
+    const million = Math.floor(wholeNumber / 1000000);
+    wholeNumber %= 1000000;
+    const thousand = Math.floor(wholeNumber / 1000);
+    wholeNumber %= 1000;
+
+    if (billion > 0) result += convertLessThanOneHundred(billion) + " Billion";
+    if (million > 0) {
+      if (result) result += " ";
+      result += convertLessThanOneHundred(million) + " Million";
+    }
+    if (thousand > 0) {
+      if (result) result += " ";
+      result += convertLessThanOneHundred(thousand) + " Thousand";
+    }
+    if (wholeNumber > 0) {
+      if (result) result += " ";
+      result += convertLessThanOneThousand(wholeNumber);
+    }
+  }
+
+  return result + " Dollars";
+};
+
+// Format the date
+const formatDate = (dateString) => {
+  const options = { year: "numeric", month: "long", day: "numeric" };
+  return new Date(dateString).toLocaleDateString("en-US", options);
+};
+
+// Add this new function to handle printing
+const printCheck = (check) => {
+  // Create a new window for printing
+  const printWindow = window.open("", "_blank");
+
+  // Create the HTML content for the check
+  const printContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Check #${check.check_id}</title>
+      <style>
+        @page {
+          size: 8.5in 11in;
+          margin: 0.5in;
+        }
+        @media print {
+          body {
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 0;
+            width: 8.5in;
+            height: 11in;
+          }
+          .check {
+            border: 2px solid #000;
+            padding: 40px 30px;
+            max-width: 6.5in;
+            min-height: 3in;
+            margin: 0 auto;
+            position: relative;
+          }
+          .check-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            font-size: 14px;
+          }
+          .check-date {
+            text-align: right;
+          }
+          .payee-line {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0 40px 0;
+            font-size: 16px;
+          }
+          .amount-line {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            min-height: 24px;
+          }
+          .amount-in-words {
+            flex: 1;
+            border-bottom: 1px solid #000;
+            margin-right: 20px;
+            padding: 0 5px 5px 5px;
+          }
+          .amount-box {
+            border: 1px solid #000;
+            padding: 5px 10px;
+            min-width: 150px;
+            text-align: right;
+            font-weight: bold;
+          }
+          .memo {
+            margin: 30px 0 10px 0;
+            padding-top: 10px;
+            font-size: 14px;
+          }
+          .signature-line {
+            display: inline-block;
+            margin-top: 40px;
+            border-top: 1px solid #000;
+            min-width: 200px;
+            text-align: center;
+            padding-top: 5px;
+          }
+          .check-number {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            font-size: 14px;
+          }
+          .bank-info {
+            position: absolute;
+            top: 20px;
+            left: 30px;
+            font-size: 14px;
+            font-weight: bold;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="check">
+         <div class="bank-info">
+          ${(() => {
+            // Use user_id from the check object to find the user
+            const user = users.value.find((u) => u.id === check.id);
+            return `
+              ${user?.c_user_name ? `<div>${user.c_user_name}</div>` : ""}
+              ${user?.c_user_address ? `<div>${user.c_user_address}</div>` : ""}
+              ${
+                user?.c_user_phone
+                  ? `<div>Phone: ${user.c_user_phone}</div>`
+                  : ""
+              }
+            `;
+          })()}
+        </div>
+
+        <div class="check-number">#${check.check_id}</div>
+
+        <div class="check-date">${formatDate(check.c_check_date)}</div>
+
+        <div class="payee-line">
+          <div>Pay to the order of: <strong>${
+            check.c_check_payee
+          }</strong></div>
+          <div class="amount-box">$${parseFloat(check.c_check_amount).toFixed(
+            2
+          )}</div>
+        </div>
+
+        <div class="amount-line">
+          <div class="amount-in-words">
+            ${(() => {
+              const amount = parseFloat(check.c_check_amount);
+              const dollars = Math.floor(amount);
+              const cents = Math.round((amount % 1) * 100);
+
+              const dollarWords = numberToWords(dollars);
+              const centWords =
+                cents > 0
+                  ? ` and ${cents.toString().padStart(2, "0")}/100`
+                  : "";
+
+              return `${dollarWords}${centWords} only`;
+            })()}
+          </div>
+        </div>
+
+
+        ${
+          check.check_memo
+            ? `<div class="memo"><strong>Memo:</strong> ${check.check_memo}</div>`
+            : ""
+        }
+
+        <div class="signature-line">
+          Authorized Signature
+        </div>
+      </div>
+
+      <script>
+        // Auto-print when the window loads
+        window.onload = function() {
+          setTimeout(function() {
+            window.print();
+            window.onafterprint = function() {
+              window.close();
+            };
+          }, 250);
+        };
+      <\/script>
+    </body>
+    </html>
+  `;
+
+  // Write the content to the new window
+  printWindow.document.open();
+  printWindow.document.write(printContent);
+  printWindow.document.close();
+};
 
 const fetchList = async () => {
   try {
@@ -269,8 +561,9 @@ onMounted(async () => {
                 showModal = true;
               }
             "
-            >+ Add Check</UButton
           >
+            + Add Check
+          </UButton>
         </div>
       </template>
 
