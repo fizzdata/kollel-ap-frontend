@@ -10,6 +10,8 @@ const isSubmitting = ref(false);
 const open = ref(false);
 const checks = ref([]);
 const showDeleteConfirmModal = ref(false);
+const printLoadingStates = ref({});
+
 // Form state
 const form = ref({
   id: null,
@@ -229,11 +231,15 @@ const columns = [
           {
             default: () =>
               h(resolveComponent("UButton"), {
-                icon: "i-heroicons-printer",
+                icon: printLoadingStates.value[row.original.check_id]
+                  ? "i-heroicons-arrow-path"
+                  : "i-heroicons-printer",
+                loading: printLoadingStates.value[row.original.check_id],
                 size: "xs",
                 color: "info",
                 variant: "soft",
                 onClick: () => printCheck(row.original),
+                disabled: printLoadingStates.value[row.original.check_id],
               }),
           }
         ),
@@ -241,280 +247,117 @@ const columns = [
   },
 ];
 
-// Helper function to convert numbers to words (for the amount in words)
-const numberToWords = (num) => {
-  const ones = [
-    "",
-    "One",
-    "Two",
-    "Three",
-    "Four",
-    "Five",
-    "Six",
-    "Seven",
-    "Eight",
-    "Nine",
-    "Ten",
-    "Eleven",
-    "Twelve",
-    "Thirteen",
-    "Fourteen",
-    "Fifteen",
-    "Sixteen",
-    "Seventeen",
-    "Eighteen",
-    "Nineteen",
-  ];
-
-  const tens = [
-    "",
-    "",
-    "Twenty",
-    "Thirty",
-    "Forty",
-    "Fifty",
-    "Sixty",
-    "Seventy",
-    "Eighty",
-    "Ninety",
-  ];
-
-  if (num === 0) return "Zero";
-
-  function convertLessThanOneHundred(n) {
-    if (n < 20) return ones[n];
-    const ten = Math.floor(n / 10);
-    const one = n % 10;
-    return tens[ten] + (one ? " " + ones[one] : "");
-  }
-
-  function convertLessThanOneThousand(n) {
-    const hundred = Math.floor(n / 100);
-    const remainder = n % 100;
-    let result = "";
-    if (hundred > 0) {
-      result += ones[hundred] + " Hundred";
-    }
-    if (remainder > 0) {
-      if (result) result += " and ";
-      result += convertLessThanOneHundred(remainder);
-    }
-    return result;
-  }
-
-  const numStr = num.toString().split(".");
-  let wholeNumber = parseInt(numStr[0]);
-  let result = "";
-
-  if (wholeNumber === 0) {
-    result = "Zero";
-  } else {
-    const billion = Math.floor(wholeNumber / 1000000000);
-    wholeNumber %= 1000000000;
-    const million = Math.floor(wholeNumber / 1000000);
-    wholeNumber %= 1000000;
-    const thousand = Math.floor(wholeNumber / 1000);
-    wholeNumber %= 1000;
-
-    if (billion > 0) result += convertLessThanOneHundred(billion) + " Billion";
-    if (million > 0) {
-      if (result) result += " ";
-      result += convertLessThanOneHundred(million) + " Million";
-    }
-    if (thousand > 0) {
-      if (result) result += " ";
-      result += convertLessThanOneHundred(thousand) + " Thousand";
-    }
-    if (wholeNumber > 0) {
-      if (result) result += " ";
-      result += convertLessThanOneThousand(wholeNumber);
-    }
-  }
-
-  return result + " Dollars";
-};
-
-// Format the date
-const formatDate = (dateString) => {
-  const options = { year: "numeric", month: "long", day: "numeric" };
-  return new Date(dateString).toLocaleDateString("en-US", options);
-};
-
 // Add this new function to handle printing
-const printCheck = (check) => {
-  // Create a new window for printing
-  const printWindow = window.open("", "_blank");
+const printCheck = async (check) => {
+  try {
+    printLoadingStates.value[check.check_id] = true;
 
-  // Create the HTML content for the check
-  const printContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Check #${check.check_id}</title>
-      <style>
-        @page {
-          size: 8.5in 11in;
-          margin: 0.5in;
-        }
-        @media print {
-          body {
-            font-family: 'Courier New', monospace;
-            margin: 0;
-            padding: 0;
-            width: 8.5in;
-            height: 11in;
-          }
-          .check {
-            border: 2px solid #000;
-            padding: 40px 30px;
-            max-width: 6.5in;
-            min-height: 3in;
-            margin: 0 auto;
-            position: relative;
-          }
-          .check-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-            font-size: 14px;
-          }
-          .check-date {
-            text-align: right;
-          }
-          .payee-line {
-            display: flex;
-            justify-content: space-between;
-            margin: 10px 0 40px 0;
-            font-size: 16px;
-          }
-          .amount-line {
-            display: flex;
-            justify-content: space-between;
-            margin: 10px 0;
-            min-height: 24px;
-          }
-          .amount-in-words {
-            flex: 1;
-            border-bottom: 1px solid #000;
-            margin-right: 20px;
-            padding: 0 5px 5px 5px;
-          }
-          .amount-box {
-            border: 1px solid #000;
-            padding: 5px 10px;
-            min-width: 150px;
-            text-align: right;
-            font-weight: bold;
-          }
-          .memo {
-            margin: 30px 0 10px 0;
-            padding-top: 10px;
-            font-size: 14px;
-          }
-          .signature-line {
-            display: inline-block;
-            margin-top: 40px;
-            border-top: 1px solid #000;
-            min-width: 200px;
-            text-align: center;
-            padding-top: 5px;
-          }
-          .check-number {
-            position: absolute;
-            top: 20px;
-            right: 40px;
-            font-size: 14px;
-          }
-          .bank-info {
-            position: absolute;
-            top: 20px;
-            left: 30px;
-            font-size: 14px;
-            font-weight: bold;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="check">
-         <div class="bank-info">
-          ${(() => {
-            // Use user_id from the check object to find the user
-            const user = users.value.find((u) => u.id === check.id);
-            return `
-              ${user?.c_user_name ? `<div>${user.c_user_name}</div>` : ""}
-              ${user?.c_user_address ? `<div>${user.c_user_address}</div>` : ""}
-              ${
-                user?.c_user_phone
-                  ? `<div>Phone: ${user.c_user_phone}</div>`
-                  : ""
+    const response = await api(
+      `/collage_ap/10869442/check/${check.check_id}/print`,
+      {
+        method: "POST",
+      }
+    );
+
+    if (response.success && response.pdf) {
+      // Create a Blob from the base64 PDF
+      const byteCharacters = atob(response.pdf);
+      const byteNumbers = new Array(byteCharacters.length);
+
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+
+      // Create a URL for the blob
+      const fileURL = URL.createObjectURL(blob);
+
+      // Open the PDF in a new tab
+      const newWindow = window.open();
+      newWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Check #${check.check_id}</title>
+            <style>
+              @media print {
+                @page { margin: 0; }
+                body { 
+                  margin: 0;
+                  padding: 0;
+                  -webkit-print-color-adjust: exact;
+                  print-color-adjust: exact;
+                }
+                .no-print { 
+                  display: none !important; 
+                }
+                .print-only { 
+                  display: block !important; 
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  width: 100%;
+                  height: 100%;
+                }
+                iframe { 
+                  width: 100%;
+                  height: 100%;
+                  border: none;
+                }
               }
-            `;
-          })()}
-        </div>
+              @media screen {
+                body, html { 
+                  margin: 0; 
+                  padding: 0; 
+                  height: 100%;
+                  overflow: hidden;
+                }
+                .print-only {
+                  display: none;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="print-only">
+              <iframe src="${fileURL}"></iframe>
+            </div>
+            
+            <iframe class="no-print" src="${fileURL}" style="width:100%; height:100vh; border:none;"></iframe>
+            
+            <script>
+              // Auto-print when the PDF is loaded
+              window.onload = function() {
+                // Optional: Auto-print after a short delay
+                // setTimeout(() => window.print(), 500);
+              };
+            <\/script>
+          </body>
+        </html>
+      `);
+      newWindow.document.close();
 
-        <div class="check-number">#${check.check_id}</div>
-
-        <div class="check-date">${formatDate(check.c_check_date)}</div>
-
-        <div class="payee-line">
-          <div>Pay to the order of: <strong>${
-            check.c_check_payee
-          }</strong></div>
-          <div class="amount-box">$${parseFloat(check.c_check_amount).toFixed(
-            2
-          )}</div>
-        </div>
-
-        <div class="amount-line">
-          <div class="amount-in-words">
-            ${(() => {
-              const amount = parseFloat(check.c_check_amount);
-              const dollars = Math.floor(amount);
-              const cents = Math.round((amount % 1) * 100);
-
-              const dollarWords = numberToWords(dollars);
-              const centWords =
-                cents > 0
-                  ? ` and ${cents.toString().padStart(2, "0")}/100`
-                  : "";
-
-              return `${dollarWords}${centWords} only`;
-            })()}
-          </div>
-        </div>
-
-
-        ${
-          check.check_memo
-            ? `<div class="memo"><strong>Memo:</strong> ${check.check_memo}</div>`
-            : ""
-        }
-
-        <div class="signature-line">
-          Authorized Signature
-        </div>
-      </div>
-
-      <script>
-        // Auto-print when the window loads
-        window.onload = function() {
-          setTimeout(function() {
-            window.print();
-            window.onafterprint = function() {
-              window.close();
-            };
-          }, 250);
-        };
-      <\/script>
-    </body>
-    </html>
-  `;
-
-  // Write the content to the new window
-  printWindow.document.open();
-  printWindow.document.write(printContent);
-  printWindow.document.close();
+      // Clean up the URL object when the window is closed
+      newWindow.onbeforeunload = function () {
+        URL.revokeObjectURL(fileURL);
+      };
+    } else {
+      throw new Error(response?._data?.[0] || "Failed to generate PDF");
+    }
+  } catch (error) {
+    console.error("Print error:", error);
+    toast.add({
+      description:
+        error.message || "Failed to print check. Please try again later.",
+      color: "error",
+      duration: 5000,
+    });
+  } finally {
+    // Clear loading state when done
+    printLoadingStates.value[check.check_id] = false;
+  }
 };
 
 const fetchList = async () => {
