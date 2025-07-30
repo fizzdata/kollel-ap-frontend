@@ -20,14 +20,14 @@ const form = ref({
 // Validation schema
 const schema = object({
   name: string().required("Name is required"),
-  email: string().email("Invalid email").optional(),
+  email: string().email("Invalid email").nullable(),
   phone: string()
     // .matches(/^[0-9]+$/, "Phone number must be numeric")
     // .min(10, "Phone number must be at least 10 digits")
     // .max(10, "Phone number must be at most 10 digits")
-    .optional(),
-  address: string().optional(),
-  agreed_amount: string().optional(),
+    .nullable(),
+  address: string().nullable(),
+  agreed_amount: string().nullable(),
 });
 
 const state = reactive({ ...form.value });
@@ -239,8 +239,8 @@ onMounted(async () => {
           <h2 class="text-xl font-bold">Users</h2>
           <UButton
             @click="
-              {
-                resetForm;
+              () => {
+                resetForm();
                 showModal = true;
               }
             "

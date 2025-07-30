@@ -32,7 +32,7 @@ const schema = object({
     .transform((value) => (isNaN(value) ? undefined : value)) // Transform empty strings to undefined
     .required("Amount is required")
     .positive("Amount must be positive"),
-  memo: string().optional(),
+  memo: string().nullable(),
   date: string().required("Date is required"),
   year: string().required("Year is required"),
 });
@@ -556,8 +556,8 @@ onMounted(async () => {
           <h2 class="text-xl font-bold">Checks</h2>
           <UButton
             @click="
-              {
-                resetForm;
+              () => {
+                resetForm();
                 showModal = true;
               }
             "
