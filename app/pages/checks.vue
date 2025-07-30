@@ -196,7 +196,7 @@ const columns = [
         // Tooltip with Edit Icon Button
         h(
           resolveComponent("UTooltip"),
-          { text: "Edit User" },
+          { text: "Edit Check" },
           {
             default: () =>
               h(resolveComponent("UButton"), {
@@ -212,7 +212,7 @@ const columns = [
         // Tooltip with Delete Icon Button
         h(
           resolveComponent("UTooltip"),
-          { text: "Delete User" },
+          { text: "Delete Check" },
           {
             default: () =>
               h(resolveComponent("UButton"), {
@@ -227,7 +227,7 @@ const columns = [
         // Tooltip with Print Icon Button
         h(
           resolveComponent("UTooltip"),
-          { text: "Print" },
+          { text: "Print Check" },
           {
             default: () =>
               h(resolveComponent("UButton"), {
