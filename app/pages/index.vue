@@ -5,8 +5,9 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 
-const currentEvents = ref([]);
 const api = useApi();
+const route = useRoute();
+const currentEvents = ref([]);
 const loading = ref(false);
 const checks = ref([]);
 const calendarRef = ref(null); // reference to calendar
@@ -14,6 +15,8 @@ const allChecks = ref([]);
 const showEventModal = ref(false);
 const selectedCheck = ref(null);
 const users = ref([]);
+const collegeId = computed(() => route.params.id || "10869442"); // Default to current ID if not in URL
+
 const handleEventClick = (clickInfo) => {
   const eventId = +clickInfo.event.id;
 
@@ -60,7 +63,7 @@ const totalAmount = computed(() =>
 const fetchList = async () => {
   try {
     loading.value = true;
-    const response = await api("/collage_ap/10869442/checks");
+    const response = await api(`/collage_ap/${collegeId.value}/checks`);
     if (response?.success) {
       const events =
         response?.data?.map((item) => ({
@@ -82,7 +85,7 @@ const fetchList = async () => {
 const fetchUsers = async () => {
   loading.value = true;
   try {
-    const response = await api(`/collage_ap/10869442/users`); // Call it as a function
+    const response = await api(`/collage_ap/${collegeId.value}/users`); // Call it as a function
     if (response?.success) {
       users.value = response?.c_users;
     }

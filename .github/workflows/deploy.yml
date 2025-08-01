@@ -1,0 +1,66 @@
+name: Deploy Kollel App Frontend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-frontend:
+    runs-on: ubuntu-latest
+    env:
+      API_URL: ${{ secrets.API_URL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Build frontend
+        run: npx nuxi generate
+
+      - name: Upload frontend build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: .output/public
+
+  deploy:
+    needs: build-frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH Key from Base64
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY_BASE64 }}" | base64 -d > private_key.pem
+          chmod 600 private_key.pem
+
+      - name: Download frontend artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: .output/public
+
+      - name: Deploy to Server
+        env:
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts
+
+          # Create target directory if it doesn't exist
+          ssh -i private_key.pem root@$SERVER_IP "mkdir -p /var/www/kollel-ap-frontend"
+
+          # Deploy frontend files
+          scp -i private_key.pem -r dist/* root@$SERVER_IP:/var/www/kollel-ap-frontend/
+
+          # Set proper permissions
+          ssh -i private_key.pem root@$SERVER_IP "chown -R www-data:www-data /var/www/kollel-ap-frontend"
+
+          # Clean up
+          rm private_key.pem

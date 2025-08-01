@@ -1,13 +1,15 @@
 <script setup>
 import { object, string } from "yup";
 
+const api = useApi();
+const route = useRoute();
 const users = ref([]);
 const isSubmitting = ref(false);
 const showModal = ref(false);
-const api = useApi();
 const loading = ref(false);
 const toast = useToast();
 const showDeleteConfirmModal = ref(false);
+const collegeId = computed(() => route.params.id || "10869442"); // Default to current ID if not in URL
 const form = ref({
   id: null,
   name: "",
@@ -36,8 +38,8 @@ const onSubmit = async (event) => {
   isSubmitting.value = true;
 
   const endpoint = state.id
-    ? `/collage_ap/10869442/user/${state.id}`
-    : `/collage_ap/10869442/user`;
+    ? `/collage_ap/${collegeId.value}/user/${state.id}`
+    : `/collage_ap/${collegeId.value}/user`;
   const method = state.id ? "PUT" : "POST";
 
   delete event.data.id;
@@ -123,9 +125,12 @@ const onDeleteConfirm = async () => {
   isSubmitting.value = true;
 
   try {
-    const response = await api(`/collage_ap/10869442/user/${state.id}`, {
-      method: "DELETE",
-    });
+    const response = await api(
+      `/collage_ap/${collegeId.value}/user/${state.id}`,
+      {
+        method: "DELETE",
+      }
+    );
 
     if (response?.success) {
       toast.add({
@@ -215,7 +220,7 @@ const columns = [
 const fetchUsers = async () => {
   loading.value = true;
   try {
-    const response = await api(`/collage_ap/10869442/users`); // Call it as a function
+    const response = await api(`/collage_ap/${collegeId.value}/users`); // Call it as a function
     if (response?.success) {
       users.value = response?.c_users;
     }

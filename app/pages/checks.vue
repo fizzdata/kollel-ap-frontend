@@ -4,6 +4,7 @@ import { CalendarDate } from "@internationalized/date";
 
 const api = useApi();
 const toast = useToast();
+const route = useRoute();
 const loading = ref(false);
 const showModal = ref(false);
 const isSubmitting = ref(false);
@@ -11,6 +12,7 @@ const open = ref(false);
 const checks = ref([]);
 const showDeleteConfirmModal = ref(false);
 const printLoadingStates = ref({});
+const collegeId = computed(() => route.params.id || "10869442"); // Default to current ID if not in URL
 
 // Form state
 const form = ref({
@@ -45,8 +47,8 @@ const onSubmit = async (event) => {
   isSubmitting.value = true;
 
   const endpoint = form.value.id
-    ? `/collage_ap/10869442/check/${form.value.id}`
-    : `/collage_ap/10869442/check`;
+    ? `/collage_ap/${collegeId.value}/check/${form.value.id}`
+    : `/collage_ap/${collegeId.value}/check`;
   const method = form.value.id ? "PUT" : "POST";
 
   delete event.data.id;
@@ -140,9 +142,12 @@ const onDeleteConfirm = async () => {
   isSubmitting.value = true;
 
   try {
-    const response = await api(`/collage_ap/10869442/check/${form.value.id}`, {
-      method: "DELETE",
-    });
+    const response = await api(
+      `/collage_ap/${collegeId.value}/check/${form.value.id}`,
+      {
+        method: "DELETE",
+      }
+    );
 
     if (response?.success) {
       toast.add({
@@ -253,7 +258,7 @@ const printCheck = async (check) => {
     printLoadingStates.value[check.check_id] = true;
 
     const response = await api(
-      `/collage_ap/10869442/check/${check.check_id}/print`,
+      `/collage_ap/${collegeId.value}/check/${check.check_id}/print`,
       {
         method: "POST",
       }
@@ -363,7 +368,7 @@ const printCheck = async (check) => {
 const fetchList = async () => {
   try {
     loading.value = true;
-    const response = await api("/collage_ap/10869442/checks");
+    const response = await api(`/collage_ap/${collegeId.value}/checks`);
     if (response?.success) {
       checks.value = response?.data || [];
     }
@@ -376,7 +381,7 @@ const fetchList = async () => {
 
 const fetchUsers = async () => {
   try {
-    const response = await api(`/collage_ap/10869442/users`); // Call it as a function
+    const response = await api(`/collage_ap/${collegeId.value}/users`); // Call it as a function
     if (response?.success) {
       users.value = response?.c_users;
     }
