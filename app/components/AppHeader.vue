@@ -1,10 +1,18 @@
 <script setup>
 const route = useRoute();
+const router = useRouter();
+const collegeId = computed(() => route.params.id || "10869442"); // Default to current ID if not in URL
 
 const navigation = [
-  { name: "Users", href: "/users" },
-  { name: "Checks", href: "/checks" },
+  { name: "Users", href: `/users?id=${collegeId.value}` },
+  { name: "Checks", href: `/checks?id=${collegeId.value}` },
 ];
+
+onMounted(() => {
+  if (route.path === "/" && !route.query.id) {
+    router.replace(`/?id=${collegeId.value}`);
+  }
+});
 </script>
 
 <template>
@@ -14,7 +22,7 @@ const navigation = [
       aria-label="Global"
     >
       <div class="flex lg:flex-1">
-        <ULink to="/" class="-m-1.5 p-1.5">
+        <ULink :to="`/?id=${collegeId}`" class="-m-1.5 p-1.5">
           <span class="font-bold text-white">Kollel App </span>
         </ULink>
       </div>

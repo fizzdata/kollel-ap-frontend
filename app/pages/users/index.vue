@@ -9,7 +9,11 @@ const showModal = ref(false);
 const loading = ref(false);
 const toast = useToast();
 const showDeleteConfirmModal = ref(false);
-const collegeId = computed(() => route.params.id || "10869442"); // Default to current ID if not in URL
+const collegeId = computed(() => route.query.id); // Default to current ID if not in URL
+const errorMessage = ref("");
+const searchTerm = ref("");
+const isValidId = ref(false);
+
 const form = ref({
   id: null,
   name: "",
@@ -23,11 +27,7 @@ const form = ref({
 const schema = object({
   name: string().required("Name is required"),
   email: string().email("Invalid email").nullable(),
-  phone: string()
-    // .matches(/^[0-9]+$/, "Phone number must be numeric")
-    // .min(10, "Phone number must be at least 10 digits")
-    // .max(10, "Phone number must be at most 10 digits")
-    .nullable(),
+  phone: string().nullable(),
   address: string().nullable(),
   agreed_amount: string().nullable(),
 });
@@ -53,10 +53,11 @@ const onSubmit = async (event) => {
       showModal.value = false;
       toast.add({
         title: "Success",
-        description:
-          response.msg || state.id
-            ? "User updated successfully"
-            : "User created successfully",
+        description: response?.msg
+          ? response?.msg
+          : state.id
+          ? "User updated successfully"
+          : "User created successfully",
         color: "success",
         duration: 2000,
       });
@@ -172,7 +173,19 @@ const onDeleteConfirm = async () => {
 };
 
 const columns = [
-  { accessorKey: "c_user_name", header: "Name" },
+  {
+    accessorKey: "c_user_name",
+    header: "Name",
+    cell: ({ row }) =>
+      h(
+        resolveComponent("NuxtLink"),
+        {
+          to: `/users/${row.original.id}?collegeId=${collegeId.value}&name=${row.original.c_user_name}`, // dynamic route to user detail page
+          class: "text-primary hover:underline cursor-pointer",
+        },
+        () => row.original.c_user_name
+      ),
+  },
   { accessorKey: "c_user_email", header: "Email" },
   { accessorKey: "c_user_phone", header: "Phone No." },
   { accessorKey: "c_user_address", header: "Address" },
@@ -222,7 +235,13 @@ const fetchUsers = async () => {
   try {
     const response = await api(`/collage_ap/${collegeId.value}/users`); // Call it as a function
     if (response?.success) {
+      isValidId.value = true;
+
       users.value = response?.c_users;
+    } else if (!response?.success) {
+      isValidId.value = false;
+
+      errorMessage.value = response?.msg || "Org not found";
     }
   } catch (error) {
     console.error("Error fetching projects:", error);
@@ -231,43 +250,95 @@ const fetchUsers = async () => {
   }
 };
 
+// Add computed property to filter users based on search term
+const filteredUsers = computed(() => {
+  if (!searchTerm.value) return users.value;
+
+  const term = searchTerm.value.toLowerCase();
+  return users.value.filter((user) => {
+    return (
+      user.c_user_name?.toLowerCase().includes(term) ||
+      user.c_user_email?.toLowerCase().includes(term) ||
+      user.c_user_phone?.includes(term)
+    );
+  });
+});
+
+// Run again whenever the ID changes
+watch(collegeId, async (newId) => {
+  if (newId) {
+    await fetchUsers();
+  }
+});
+
 onMounted(async () => {
-  await fetchUsers();
+  if (collegeId.value) {
+    await fetchUsers();
+  }
 });
 </script>
 
 <template>
   <div class="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8">
-    <UCard class="w-full">
+    <div v-if="loading" class="flex items-center justify-center pt-10 w-full">
+      <BaseSpinner :show-loader="loading" size="md" />
+    </div>
+    <UCard v-else-if="isValidId" class="w-full">
       <template #header>
-        <div class="flex justify-between items-center">
+        <div
+          class="flex flex-col md:flex-row md:justify-between md:items-center gap-4"
+        >
           <h2 class="text-xl font-bold">Users</h2>
-          <UButton
-            @click="
-              () => {
-                resetForm();
-                showModal = true;
-              }
-            "
-          >
-            + Add User
-          </UButton>
+
+          <div class="flex justify-end items-center gap-4">
+            <UInput
+              v-model="searchTerm"
+              icon="i-lucide-search"
+              size="md"
+              variant="outline"
+              placeholder="Search..."
+              :ui="{ trailing: 'pe-1' }"
+            >
+              <template v-if="searchTerm?.length" #trailing>
+                <UButton
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  icon="i-lucide-circle-x"
+                  aria-label="Clear input"
+                  @click="searchTerm = ''"
+                />
+              </template>
+            </UInput>
+            <UButton
+              @click="
+                () => {
+                  resetForm();
+                  showModal = true;
+                }
+              "
+            >
+              + Add User
+            </UButton>
+          </div>
         </div>
       </template>
 
       <!-- User Table -->
       <UTable
-        :data="users"
+        :data="filteredUsers"
         :columns="columns"
         :loading="loading"
         class="flex-1"
       />
     </UCard>
+
+    <div v-else>{{ errorMessage }}</div>
   </div>
   <!-- Modal for Add/Edit -->
   <UModal
     v-model:open="showModal"
-    :title="form.id ? 'Update User' : 'Create User'"
+    :title="form.id ? 'Edit User' : 'Create User'"
     :dismissible="false"
   >
     <template #body>

@@ -12,7 +12,10 @@ const open = ref(false);
 const checks = ref([]);
 const showDeleteConfirmModal = ref(false);
 const printLoadingStates = ref({});
-const collegeId = computed(() => route.params.id || "10869442"); // Default to current ID if not in URL
+const collegeId = computed(() => route.query.id); // Default to current ID if not in URL
+const errorMessage = ref("");
+const isValidId = ref(false);
+const searchTerm = ref("");
 
 // Form state
 const form = ref({
@@ -62,10 +65,11 @@ const onSubmit = async (event) => {
     if (response?.success) {
       toast.add({
         title: "Success",
-        description:
-          response.msg || form.value.id
-            ? "Check updated successfully"
-            : "Check created successfully",
+        description: response?.msg
+          ? response?.msg
+          : form.value.id
+          ? "Check updated successfully"
+          : "Check created successfully",
         color: "success",
         duration: 2000,
       });
@@ -371,6 +375,10 @@ const fetchList = async () => {
     const response = await api(`/collage_ap/${collegeId.value}/checks`);
     if (response?.success) {
       checks.value = response?.data || [];
+      isValidId.value = true;
+    } else if (!response?.success) {
+      errorMessage.value = response?.msg || "Org not found";
+      isValidId.value = false;
     }
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -390,44 +398,99 @@ const fetchUsers = async () => {
   }
 };
 
+// Add computed property to filter users based on search term
+const filteredChecks = computed(() => {
+  if (!searchTerm.value) return checks.value;
+
+  const term = searchTerm.value.toLowerCase();
+  return checks.value.filter((item) => {
+    return (
+      item.c_user_name?.toLowerCase().includes(term) ||
+      item.c_user_email?.toLowerCase().includes(term) ||
+      item.check_memo?.toLowerCase().includes(term)
+    );
+  });
+});
+
+// Run again whenever the ID changes
+watch(collegeId, async (newId) => {
+  if (newId) {
+    await fetchList();
+    await fetchUsers();
+  }
+});
+
 onMounted(async () => {
-  await fetchList();
-  await fetchUsers();
+  if (collegeId.value) {
+    await fetchList();
+    await fetchUsers();
+  }
 });
 </script>
 
 <template>
   <div class="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8">
-    <UCard class="w-full">
+    <div v-if="loading" class="flex items-center justify-center pt-10 w-full">
+      <BaseSpinner :show-loader="loading" size="md" />
+    </div>
+
+    <UCard v-else-if="isValidId" class="w-full">
       <template #header>
-        <div class="flex justify-between items-center">
+        <div
+          class="flex flex-col md:flex-row md:justify-between md:items-center gap-4"
+        >
           <h2 class="text-xl font-bold">Checks</h2>
-          <UButton
-            @click="
-              () => {
-                resetForm();
-                showModal = true;
-              }
-            "
-          >
-            + Add Check
-          </UButton>
+
+          <div class="flex justify-end items-center gap-4">
+            <UInput
+              v-model="searchTerm"
+              icon="i-lucide-search"
+              size="md"
+              variant="outline"
+              placeholder="Search..."
+              :ui="{ trailing: 'pe-1' }"
+            >
+              <template v-if="searchTerm?.length" #trailing>
+                <UButton
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  icon="i-lucide-circle-x"
+                  aria-label="Clear input"
+                  @click="searchTerm = ''"
+                />
+              </template>
+            </UInput>
+
+            <UButton
+              @click="
+                () => {
+                  resetForm();
+                  showModal = true;
+                }
+              "
+            >
+              + Add Check
+            </UButton>
+          </div>
         </div>
       </template>
 
       <UTable
-        :data="checks"
+        :data="filteredChecks"
         :columns="columns"
         :loading="loading"
         class="flex-1"
       />
     </UCard>
+
+    <div v-else>{{ errorMessage }}</div>
   </div>
 
   <!-- Add/Edit check modal -->
   <UModal
     v-model:open="showModal"
-    :title="form.id ? 'Update Check' : 'Add New Check'"
+    :title="form.id ? 'Edit Check' : 'Add New Check'"
     :dismissible="false"
   >
     <template #body>

@@ -15,7 +15,9 @@ const allChecks = ref([]);
 const showEventModal = ref(false);
 const selectedCheck = ref(null);
 const users = ref([]);
-const collegeId = computed(() => route.params.id || "10869442"); // Default to current ID if not in URL
+const collegeId = computed(() => route.query.id); // Default to current ID if not in URL
+const errorMessage = ref("");
+const isValidId = ref(false);
 
 const handleEventClick = (clickInfo) => {
   const eventId = +clickInfo.event.id;
@@ -74,6 +76,9 @@ const fetchList = async () => {
 
       checks.value = events;
       allChecks.value = response?.data;
+    } else if (!response?.success) {
+      errorMessage.value = response?.msg || "Org not found";
+      isValidId.value = false;
     }
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -96,9 +101,19 @@ const fetchUsers = async () => {
   }
 };
 
+// Run again whenever the ID changes
+watch(collegeId, async (newId) => {
+  if (newId) {
+    await fetchUsers();
+    await fetchList();
+  }
+});
+
 onMounted(async () => {
-  await fetchUsers();
-  await fetchList();
+  if (collegeId.value) {
+    await fetchUsers();
+    await fetchList();
+  }
 });
 </script>
 
@@ -107,6 +122,7 @@ onMounted(async () => {
     <BaseSpinner :show-loader="loading" size="md" />
   </div>
 
+  <div v-else-if="errorMessage">{{ errorMessage }}</div>
   <template v-else>
     <div class="flex flex-col font-sans text-sm max-w-7xl mx-auto p-6 lg:px-8">
       <div class="flex flex-col">
