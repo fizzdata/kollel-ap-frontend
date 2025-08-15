@@ -12,10 +12,11 @@ const open = ref(false);
 const checks = ref([]);
 const showDeleteConfirmModal = ref(false);
 const printLoadingStates = ref({});
-const collegeId = computed(() => route.query.id); // Default to current ID if not in URL
+const collegeId = computed(() => route.query.id);
 const errorMessage = ref("");
 const isValidId = ref(false);
 const searchTerm = ref("");
+const selectedYear = ref("All");
 
 // Form state
 const form = ref({
@@ -293,33 +294,33 @@ const printCheck = async (check) => {
             <style>
               @media print {
                 @page { margin: 0; }
-                body { 
+                body {
                   margin: 0;
                   padding: 0;
                   -webkit-print-color-adjust: exact;
                   print-color-adjust: exact;
                 }
-                .no-print { 
-                  display: none !important; 
+                .no-print {
+                  display: none !important;
                 }
-                .print-only { 
-                  display: block !important; 
+                .print-only {
+                  display: block !important;
                   position: absolute;
                   top: 0;
                   left: 0;
                   width: 100%;
                   height: 100%;
                 }
-                iframe { 
+                iframe {
                   width: 100%;
                   height: 100%;
                   border: none;
                 }
               }
               @media screen {
-                body, html { 
-                  margin: 0; 
-                  padding: 0; 
+                body, html {
+                  margin: 0;
+                  padding: 0;
                   height: 100%;
                   overflow: hidden;
                 }
@@ -333,9 +334,9 @@ const printCheck = async (check) => {
             <div class="print-only">
               <iframe src="${fileURL}"></iframe>
             </div>
-            
+
             <iframe class="no-print" src="${fileURL}" style="width:100%; height:100vh; border:none;"></iframe>
-            
+
             <script>
               // Auto-print when the PDF is loaded
               window.onload = function() {
@@ -372,7 +373,9 @@ const printCheck = async (check) => {
 const fetchList = async () => {
   try {
     loading.value = true;
-    const response = await api(`/collage_ap/${collegeId.value}/checks`);
+    const response = await api(
+      `/collage_ap/${collegeId.value}/checks?start_date=1900-01-01&end_date=2999-12-31`
+    );
     if (response?.success) {
       checks.value = response?.data || [];
       isValidId.value = true;
@@ -398,18 +401,53 @@ const fetchUsers = async () => {
   }
 };
 
-// Add computed property to filter users based on search term
+// Update the filteredChecks computed property to filter by year
 const filteredChecks = computed(() => {
-  if (!searchTerm.value) return checks.value;
+  let result = [...checks.value];
 
-  const term = searchTerm.value.toLowerCase();
-  return checks.value.filter((item) => {
-    return (
-      item.c_user_name?.toLowerCase().includes(term) ||
-      item.c_user_email?.toLowerCase().includes(term) ||
-      item.check_memo?.toLowerCase().includes(term)
+  // Apply year filter only if not "All"
+  if (selectedYear.value && selectedYear.value !== "All") {
+    result = result.filter(
+      (check) => check.c_check_account_year === selectedYear.value
     );
+  }
+
+  // Apply search term filter if exists
+  if (searchTerm.value) {
+    const term = searchTerm.value.toLowerCase();
+    result = result.filter(
+      (check) =>
+        check.c_user_name?.toLowerCase().includes(term) ||
+        check.c_payee_name?.toLowerCase().includes(term) ||
+        check.c_check_number?.toLowerCase().includes(term) ||
+        check.c_check_date?.toLowerCase().includes(term)
+    );
+  }
+
+  return result;
+});
+
+const availableYears = computed(() => {
+  const years = new Set();
+  checks.value.forEach((check) => {
+    if (check.c_check_account_year) {
+      years.add(check.c_check_account_year);
+    }
   });
+  return Array.from(years).sort((a, b) => b - a); // Sort in descending order
+});
+
+const yearOptions = computed(() => {
+  const currentYear = new Date().getFullYear();
+  const startYear = 1999;
+  const endYear = currentYear + 10;
+
+  const years = [];
+  for (let year = startYear; year <= endYear; year++) {
+    years.push(year.toString());
+  }
+
+  return years;
 });
 
 // Run again whenever the ID changes
@@ -441,36 +479,58 @@ onMounted(async () => {
         >
           <h2 class="text-xl font-bold">Checks</h2>
 
-          <div class="flex justify-end items-center gap-4">
-            <UInput
-              v-model="searchTerm"
-              icon="i-lucide-search"
-              size="md"
-              variant="outline"
-              placeholder="Search..."
-              :ui="{ trailing: 'pe-1' }"
-            >
-              <template v-if="searchTerm?.length" #trailing>
-                <UButton
-                  color="neutral"
-                  variant="link"
-                  size="sm"
-                  icon="i-lucide-circle-x"
-                  aria-label="Clear input"
-                  @click="searchTerm = ''"
-                />
-              </template>
-            </UInput>
+          <div
+            class="flex flex-col md:flex-row justify-end items-center gap-4 w-full"
+          >
+            <div class="w-full md:w-48">
+              <UInput
+                v-model="searchTerm"
+                icon="i-lucide-search"
+                size="md"
+                variant="outline"
+                placeholder="Search checks..."
+                :ui="{ trailing: 'pe-1' }"
+                class="w-full"
+              >
+                <template v-if="searchTerm?.length" #trailing>
+                  <UButton
+                    color="neutral"
+                    variant="link"
+                    size="sm"
+                    icon="i-lucide-circle-x"
+                    aria-label="Clear search"
+                    @click="searchTerm = ''"
+                  />
+                </template>
+              </UInput>
+            </div>
+
+            <div class="w-full md:w-48">
+              <USelect
+                v-model="selectedYear"
+                :items="['All', ...availableYears]"
+                placeholder="Filter by year"
+                :ui="{
+                  base: 'w-full',
+                  icon: { trailing: { pointer: 'cursor-pointer' } },
+                }"
+              >
+                <template #leading>
+                  <UIcon
+                    name="i-lucide-calendar"
+                    class="w-4 h-4 text-gray-500"
+                  />
+                </template>
+              </USelect>
+            </div>
 
             <UButton
-              @click="
-                () => {
-                  resetForm();
-                  showModal = true;
-                }
-              "
+              color="primary"
+              @click="showModal = true"
+              icon="i-lucide-plus"
+              class="w-full md:w-auto"
             >
-              + Add Check
+              Add Check
             </UButton>
           </div>
         </div>
@@ -549,8 +609,19 @@ onMounted(async () => {
             </UFormField>
 
             <UFormField label="Year" name="year">
-              <UInput v-model="state.year" type="number" class="w-full" />
+              <USelect
+                v-model="state.year"
+                :items="yearOptions"
+                placeholder="Select year"
+                :ui="{
+                  base: 'w-full',
+                }"
+              />
             </UFormField>
+
+            <!-- <UFormField label="Year" name="year">
+              <UInput v-model="state.year" type="number" class="w-full" />
+            </UFormField> -->
           </div>
           <UFormField label="Memo" name="memo" class="mt-4">
             <UTextarea

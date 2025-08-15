@@ -4,8 +4,8 @@ const router = useRouter();
 const collegeId = computed(() => route.params.id || "10869442"); // Default to current ID if not in URL
 
 const navigation = [
-  { name: "Users", href: `/users?id=${collegeId.value}` },
-  { name: "Checks", href: `/checks?id=${collegeId.value}` },
+  { name: "Users", path: "/users", href: `/users?id=${collegeId.value}` },
+  { name: "Checks", path: "/checks", href: `/checks?id=${collegeId.value}` },
 ];
 
 onMounted(() => {
@@ -33,7 +33,7 @@ onMounted(() => {
           :to="item.href"
           :class="[
             'nav-link text-white hover:text-white font-medium',
-            route.path === item.href ? 'font-bold' : '',
+            route.path === item.path ? 'font-bold' : '',
           ]"
         >
           {{ item.name }}

@@ -17,7 +17,9 @@ const userName = ref("");
 const fetchList = async () => {
   try {
     loading.value = true;
-    const response = await api(`/collage_ap/${collegeId}/checks`);
+    const response = await api(
+      `/collage_ap/${collegeId}/checks?start_date=1900-01-01&end_date=2999-12-31`
+    );
 
     if (response?.success) {
       // Filter by userId
@@ -94,7 +96,6 @@ onMounted(fetchList);
           variant="outline"
           placeholder="Search..."
           :ui="{ trailing: 'pe-1' }"
-          :disabled="filteredChecks.length === 0"
         >
           <template v-if="searchTerm?.length" #trailing>
             <UButton
@@ -110,9 +111,21 @@ onMounted(fetchList);
 
         <USelect
           v-model="statusFilter"
-          :items="['All', 'Created', 'Cleared', 'Cancelled']"
+          :items="[
+            {
+              label: 'All',
+              value: 'All',
+            },
+            {
+              label: 'Created',
+              value: 'Created',
+            },
+            {
+              label: 'Printed',
+              value: 'printed',
+            },
+          ]"
           class="w-48"
-          :disabled="filteredChecks.length === 0"
         />
       </div>
     </div>

@@ -9,7 +9,7 @@ const showModal = ref(false);
 const loading = ref(false);
 const toast = useToast();
 const showDeleteConfirmModal = ref(false);
-const collegeId = computed(() => route.query.id); // Default to current ID if not in URL
+const collegeId = computed(() => route.query.id);
 const errorMessage = ref("");
 const searchTerm = ref("");
 const isValidId = ref(false);
@@ -311,6 +311,9 @@ onMounted(async () => {
               </template>
             </UInput>
             <UButton
+              color="primary"
+              icon="i-lucide-plus"
+              class="w-full md:w-auto"
               @click="
                 () => {
                   resetForm();
@@ -318,7 +321,7 @@ onMounted(async () => {
                 }
               "
             >
-              + Add User
+              Add User
             </UButton>
           </div>
         </div>
