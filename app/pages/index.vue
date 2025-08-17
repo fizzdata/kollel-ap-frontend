@@ -186,16 +186,17 @@ onMounted(async () => {
 
   <div class="flex flex-col font-sans text-sm max-w-7xl mx-auto p-6 lg:px-8">
     <div class="flex flex-col">
-      <div class="flex justify-between items-center pb-5">
+      <div
+        class="flex justify-between sm:items-center flex-col sm:flex-row pb-5"
+      >
         <p class="text-xl font-bold">Checks Calendar View</p>
         <p class="text-base font-medium">
           Total Amount: ${{ isFetching ? "0.00" : totalAmount }}
         </p>
       </div>
-      <pre v-if="isFetching" class="text-green-600 text-center mb-2 font-bold">
-          Retrieving check info, please wait...
-        </pre
-      >
+      <span v-if="isFetching" class="text-green-600 text-center mb-2 font-bold">
+        Retrieving check info, please wait...
+      </span>
       <div class="flex-grow overflow-auto">
         <FullCalendar
           ref="calendarRef"
@@ -286,3 +287,15 @@ onMounted(async () => {
     </template>
   </UModal>
 </template>
+
+<style>
+.fc-direction-ltr .fc-toolbar > * > :not(:first-child) {
+  margin-top: 0;
+}
+
+@media (max-width: 508px) {
+  .fc-direction-ltr .fc-toolbar > * > :not(:first-child) {
+    margin-top: 10px;
+  }
+}
+</style>

@@ -88,13 +88,14 @@ onMounted(fetchList);
         Checks for <span class="text-primary">{{ userName }}</span>
       </h1>
 
-      <div class="flex justify-end items-center gap-4">
+      <div class="flex flex-col sm:flex-row justify-end items-center gap-4">
         <UInput
           v-model="searchTerm"
           icon="i-lucide-search"
           size="md"
           variant="outline"
           placeholder="Search..."
+          class="w-full md:w-fit"
           :ui="{ trailing: 'pe-1' }"
         >
           <template v-if="searchTerm?.length" #trailing>
@@ -125,7 +126,7 @@ onMounted(fetchList);
               value: 'printed',
             },
           ]"
-          class="w-48"
+          class="w-full md:w-48"
         />
       </div>
     </div>

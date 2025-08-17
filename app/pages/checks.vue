@@ -477,10 +477,21 @@ onMounted(async () => {
         <div
           class="flex flex-col md:flex-row md:justify-between md:items-center gap-4"
         >
-          <h2 class="text-xl font-bold">Checks</h2>
+          <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold">Checks</h2>
+
+            <UButton
+              color="primary"
+              @click="showModal = true"
+              icon="i-lucide-plus"
+              class="flex md:hidden"
+            >
+              Add Check
+            </UButton>
+          </div>
 
           <div
-            class="flex flex-col md:flex-row justify-end items-center gap-4 w-full"
+            class="flex flex-col sm:flex-row justify-end items-center gap-4 w-full"
           >
             <div class="w-full md:w-48">
               <UInput
@@ -528,7 +539,7 @@ onMounted(async () => {
               color="primary"
               @click="showModal = true"
               icon="i-lucide-plus"
-              class="w-full md:w-auto"
+              class="md:flex hidden"
             >
               Add Check
             </UButton>

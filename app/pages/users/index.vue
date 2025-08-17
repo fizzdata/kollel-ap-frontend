@@ -286,9 +286,24 @@ onMounted(async () => {
     <UCard v-else-if="isValidId" class="w-full">
       <template #header>
         <div
-          class="flex flex-col md:flex-row md:justify-between md:items-center gap-4"
+          class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4"
         >
-          <h2 class="text-xl font-bold">Users</h2>
+          <div class="flex justify-between items-center">
+            <h2 class="text-xl font-bold">Users</h2>
+            <UButton
+              color="primary"
+              icon="i-lucide-plus"
+              class="flex sm:hidden"
+              @click="
+                () => {
+                  resetForm();
+                  showModal = true;
+                }
+              "
+            >
+              Add User
+            </UButton>
+          </div>
 
           <div class="flex justify-end items-center gap-4">
             <UInput
@@ -297,6 +312,7 @@ onMounted(async () => {
               size="md"
               variant="outline"
               placeholder="Search..."
+              class="w-full sm:w-fit"
               :ui="{ trailing: 'pe-1' }"
             >
               <template v-if="searchTerm?.length" #trailing>
@@ -313,7 +329,7 @@ onMounted(async () => {
             <UButton
               color="primary"
               icon="i-lucide-plus"
-              class="w-full md:w-auto"
+              class="sm:flex hidden"
               @click="
                 () => {
                   resetForm();
